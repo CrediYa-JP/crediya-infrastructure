@@ -1,0 +1,19 @@
+# Environment variables with sensitive data
+.env
+
+# Docker volumes data
+mysql_auth_data/
+mysql_applications_data/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

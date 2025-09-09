@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  mysql-auth:
+    image: mysql:8.0
+    container_name: crediya-mysql-auth
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${AUTH_DB_NAME}
+      MYSQL_USER: ${AUTH_DB_USER}
+      MYSQL_PASSWORD: ${AUTH_DB_PASSWORD}
+    ports:
+      - "${AUTH_DB_EXTERNAL_PORT:-3301}:3306"
+    volumes:
+      - mysql_auth_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - crediya-network
+
+  mysql-applications:
+    image: mysql:8.0
+    container_name: crediya-mysql-applications
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${APP_DB_NAME}
+      MYSQL_USER: ${APP_DB_USER}
+      MYSQL_PASSWORD: ${APP_DB_PASSWORD}
+    ports:
+      - "${APP_DB_EXTERNAL_PORT:-3302}:3306"
+    volumes:
+      - mysql_applications_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - crediya-network
+
+  authentication-service:
+    image: crediya-auth:test          
+    pull_policy: never                 
+    container_name: crediya-authentication-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=mysql-auth
+      - DB_PORT=3306
+      - DB_NAME=${AUTH_DB_NAME}
+      - DB_USERNAME=${AUTH_DB_USER}
+      - DB_PASSWORD=${AUTH_DB_PASSWORD}
+      - FLYWAY_ENABLED=true
+      - FLYWAY_LOCATIONS=classpath:db/migration
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      timeout: 10s
+      retries: 5
+      interval: 30s
+    networks:
+      - crediya-network
+
+  applications-service:
+    image: crediya-app:multistage      
+    pull_policy: never                    
+    container_name: crediya-applications-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_HOST=mysql-applications
+      - DB_PORT=3306
+      - DB_NAME=${APP_DB_NAME}
+      - DB_USERNAME=${APP_DB_USER}
+      - DB_PASSWORD=${APP_DB_PASSWORD}
+      - DB_SCHEMA=${APP_DB_SCHEMA}
+      - FLYWAY_ENABLED=true
+      - FLYWAY_LOCATIONS=classpath:db/migration
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY}
+      - AUTH_SERVICE_URL=http://authentication-service:8080
+      - AUTH_SERVICE_TIMEOUT=5000
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+    depends_on:
+      mysql-applications:
+        condition: service_healthy
+      authentication-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      timeout: 10s
+      retries: 5
+      interval: 30s
+    networks:
+      - crediya-network
+
+networks:
+  crediya-network:
+    driver: bridge
+    name: crediya-network
+
+volumes:
+  mysql_auth_data:
+    driver: local
+    name: crediya_mysql_auth_data
+  mysql_applications_data:
+    driver: local
+    name: crediya_mysql_applications_data
