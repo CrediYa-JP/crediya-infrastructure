@@ -18,9 +18,9 @@ mkdir crediya-project
 cd crediya-project
 
 # Clonar todos los repositorios como hermanos
-git clone [URL-REPO]/crediya-microservice-authentication.git
-git clone [URL-REPO]/crediya-microservice-applications.git
-git clone [URL-REPO]/crediya-infrastructure.git
+git clone /crediya-microservice-authentication.git
+git clone /crediya-microservice-applications.git
+git clone /crediya-infrastructure.git
 
 cd crediya-infrastructure
 cp .env.example .env
@@ -36,9 +36,6 @@ JWT_PUBLIC_KEY=tu_public_key_aqui
 
 # Levantar todo el sistema
 docker-compose up --build
-
-# En segundo plano
-docker-compose up --build -d
 
 # Authentication Service
 curl http://localhost:8080/actuator/health
